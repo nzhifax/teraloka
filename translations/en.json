@@ -10,7 +10,13 @@
     "delete": "Delete",
     "edit": "Edit",
     "search": "Search...",
-    "retry": "Retry"
+    "retry": "Retry",
+     "next": "Next",
+    "back": "Back",
+    "register": "Sign Up",
+    "login": "Login",
+    "logout": "Logout"
+    
   },
   "auth": {
     "login": "Login",
@@ -58,6 +64,9 @@
     "outOfStock": "Out of Stock",
     "available": "Available",
     "addedToCart": "Added to cart!"
+  },
+  "favorites": {
+     "title": "favorite"
   },
   "cart": {
     "title": "Cart",
@@ -169,5 +178,18 @@
   "cancel": "Cancel",
   "permissionTitle": "Permission Required",
   "permissionDesc": "Please allow gallery access to choose an image."
-}
+},
+"location": {
+    "title": "Your Location",
+    "hint": "Tap on the map to select location manually",
+    "useCurrent": "Use My Current Location",
+    "addressPlaceholder": "Enter address or auto-detect...",
+    "error": "Failed to retrieve location."
+  },
+
+  "steps": {
+    "step1": "Step 1: Account Information",
+    "step2": "Step 2: Role & Location"
+  }
+
 }

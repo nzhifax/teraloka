@@ -31,7 +31,7 @@ export default function PetaniLayout() {
       >
         {/* Beranda */}
         <Tabs.Screen
-          name="homeFarmer"
+          name="homeOwner"
           options={{
             title: 'Beranda',
             tabBarIcon: ({ color, size }) => (
@@ -42,11 +42,11 @@ export default function PetaniLayout() {
 
         {/* Produk */}
         <Tabs.Screen
-          name="products"
+          name="addland"
           options={{
             title: 'Produk',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="leaf-outline" size={size} color={color} />
+              <Ionicons name="add-circle-outline" size={size} color={color} />
             ),
           }}
         />

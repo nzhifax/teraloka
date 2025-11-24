@@ -8,14 +8,18 @@
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to take photos for your profile and products.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select images for your profile and products."
+        "NSCameraUsageDescription": "Aplikasi memerlukan akses kamera untuk mengambil foto profil dan produk.",
+        "NSPhotoLibraryUsageDescription": "Aplikasi memerlukan akses galeri untuk memilih foto profil dan produk.",
+        "NSLocationWhenInUseUsageDescription": "Aplikasi memerlukan akses lokasi untuk menentukan posisi Anda di peta dan menampilkan lahan di sekitar Anda."
       }
     },
+
     "android": {
+      "package": "com.anonymous.frontend",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000"
@@ -24,14 +28,18 @@
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ]
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -40,10 +48,17 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#000000"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Aplikasi ini memerlukan akses lokasi untuk menentukan posisi Anda di peta dan menampilkan lahan di sekitar Anda."
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true
     }

@@ -1,50 +1,97 @@
-import React, { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Stack } from "expo-router";
+import React, { useState, useEffect } from "react";
+import "../utils/i18n";
 
-import '../utils/i18n'; 
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { AuthProvider } from '../contexts/AuthContext';
-import { CartProvider } from '../contexts/CartContext';
-import { ProductProvider } from '../contexts/ProductContext';
+import { ThemeProvider } from "../contexts/ThemeContext";
+import { AuthProvider, useAuth } from "../contexts/AuthContext";
+import { CartProvider } from "../contexts/CartContext";
+import { ProductProvider } from "../contexts/ProductContext";
+import { LandProvider } from "../contexts/LandContext";
+import { StatsProvider } from "../contexts/StatsContext";
+import { ActivityProvider } from "../contexts/ActivityContext";
 
+// GATE UNTUK MENGATUR ARAH USER
+function AuthGate() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+
+  // GUEST
+  if (!user) {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabsGuest)" />
+        <Stack.Screen name="auth/login" />
+        <Stack.Screen name="auth/register" />
+      </Stack>
+    );
+  }
+
+  // OWNER
+  if (user.userType === "owner") {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabsOwner)" />
+      </Stack>
+    );
+  }
+
+  // BUYER
+  if (user.userType === "buyer") {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabsBuyer)" />
+      </Stack>
+    );
+  }
+
+  // ADMIN
+  if (user.userType === "admin") {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabsAdmin)" />
+      </Stack>
+    );
+  }
+
+  return null;
+}
 
 export default function RootLayout() {
-  const [role, setRole] = useState<string | null>(null);
+  const [showLanding, setShowLanding] = useState(true);
 
   useEffect(() => {
-    const setupUser = async () => {
-      const fakeUser = { email: 'z@gmail.com', role: 'buyer' };
-      await AsyncStorage.setItem('user', JSON.stringify(fakeUser));
-      setRole(fakeUser.role);
-    };
+    const timer = setTimeout(() => {
+      setShowLanding(false);
+    }, 2000);
 
-    setupUser();
+    return () => clearTimeout(timer);
   }, []);
-
-  if (!role) return null;
 
   return (
     <ThemeProvider>
       <AuthProvider>
-        <CartProvider>
-          <ProductProvider>
-            {/* Stack tetap di dalam semua Provider */}
-            <Stack screenOptions={{ headerShown: false }}>
-              {/* Halaman umum */}
-              <Stack.Screen name="index" />
-              <Stack.Screen name="auth/login" />
-              <Stack.Screen name="auth/register" />
+        <LandProvider>
+          <CartProvider>
+            <ProductProvider>
+              <StatsProvider>
+                <ActivityProvider>
 
-              {/* Layout berdasarkan role */}
-              {role === 'buyer' ? (
-                <Stack.Screen name="(tabsBuyer)" />
-              ) : (
-                <Stack.Screen name="(tabsFarmer)" />
-              )}
-            </Stack>
-          </ProductProvider>
-        </CartProvider>
+                  {showLanding ? (
+                    // TAMPILKAN LANDING DULU
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="landing/index" />
+                    </Stack>
+                  ) : (
+                    // BARU AUTHGATE SETELAH LANDING SELESAI
+                    <AuthGate />
+                  )}
+
+                </ActivityProvider>
+              </StatsProvider>
+            </ProductProvider>
+          </CartProvider>
+        </LandProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -1,39 +1,60 @@
 export const lightTheme = {
-  primary: '#10B981',
-  primaryDark: '#059669',
-  primaryLight: '#34D399',
-  background: '#FFFFFF',
-  surface: '#F3F4F6',
-  surfaceLight: '#F9FAFB',
-  card: '#FFFFFF', 
-  text: '#1F2937',
-  textSecondary: '#6B7280',
-  textLight: '#9CA3AF',
-  border: '#E5E7EB',
-  error: '#EF4444',
-  success: '#10B981',
-  warning: '#F59E0B',
-  info: '#3B82F6',
-  inputBackground: "#F2F2F2",
-  shadow: "rgba(0, 0, 0, 0.1)",
+  // Primary brand color (professional blue)
+  primary: "#1E88E5",
+  primaryDark: "#1565C0",
+  primaryLight: "#64B5F6",
+
+  // Base background colors
+  background: "#FFFFFF",
+  surface: "#F5F7FA",
+  surfaceLight: "#FAFBFC",
+  card: "#FFFFFF",
+
+  // Text colors
+  text: "#0D1B2A",
+  textSecondary: "#4B5563",
+  textLight: "#9CA3AF",
+
+  // Borders & visual separators
+  border: "#E5E7EB",
+
+  // Semantic colors
+  error: "#E53935",
+  success: "#2E7D32",
+  warning: "#F9A825",
+  info: "#1E88E5",
+
+  // UI components
+  inputBackground: "#EEF2F5",
+  shadow: "rgba(0, 0, 0, 0.08)",
 };
 
 export const darkTheme = {
-  primary: '#10B981',
-  primaryDark: '#059669',
-  primaryLight: '#34D399',
-  background: '#000000',
-  surface: '#1F2937',
-  surfaceLight: '#374151',
-  card: '#1E293B', 
-  textSecondary: '#9CA3AF',
-  textLight: '#6B7280',
-  border: '#374151',
-  error: '#EF4444',
-  success: '#10B981',
-  warning: '#F59E0B',
-  info: '#3B82F6',
-  inputBackground: "#2C2C2C",
+  // Primary brand color (still blue, but lighter for dark background)
+  primary: "#64B5F6",
+  primaryDark: "#2196F3",
+  primaryLight: "#90CAF9",
+
+  // Background layers
+  background: "#0A1929",
+  surface: "#102A43",
+  surfaceLight: "#1E3A5F",
+  card: "#112D4E",
+
+  // Text and borders
+  text: "#E3F2FD",
+  textSecondary: "#9CA3AF",
+  textLight: "#6B7280",
+  border: "#1E3A5F",
+
+  // Semantic colors
+  error: "#EF5350",
+  success: "#81C784",
+  warning: "#FBC02D",
+  info: "#64B5F6",
+
+  // UI
+  inputBackground: "#1A273D",
   shadow: "rgba(0, 0, 0, 0.4)",
 };
 

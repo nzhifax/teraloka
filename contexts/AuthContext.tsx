@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { router } from 'expo-router'; 
 
 const USER_KEY = '@lokatani:user';
 const USERS_KEY = '@lokatani:users';
@@ -17,12 +18,12 @@ export interface User {
   email: string;
   fullName: string;
   phone: string;
-  userType: 'farmer' | 'buyer';
+  userType: 'owner' | 'buyer'; // ✅ ubah farmer → owner
   address?: string;
   photo?: string;
   gender?: 'male' | 'female' | 'other';
-  dob?: string; 
-  location?: LocationData; 
+  dob?: string;
+  location?: LocationData;
   createdAt: string;
 }
 
@@ -31,7 +32,7 @@ export interface RegisterData {
   password: string;
   fullName: string;
   phone: string;
-  userType: 'farmer' | 'buyer';
+  userType: 'owner' | 'buyer'; // ✅ ubah farmer → owner
   address?: string;
   gender?: 'male' | 'female' | 'other';
   dob?: string;
@@ -63,23 +64,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user when app starts
+  // ==============================
+  // 🔁 Load user when app starts
+  // ==============================
   useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userData = await AsyncStorage.getItem(USER_KEY);
+        if (userData) setUser(JSON.parse(userData));
+      } catch (error) {
+        console.error('Error loading user:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     loadUser();
   }, []);
-
-  const loadUser = async () => {
-    try {
-      const userData = await AsyncStorage.getItem(USER_KEY);
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-    } catch (error) {
-      console.error('Error loading user:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // ==============================
   // 🪪 REGISTER FUNCTION
@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         fullName,
         phone,
-        userType,
+        userType, // ✅ owner atau buyer
         address,
         gender,
         dob,
@@ -111,14 +111,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         createdAt: new Date().toISOString(),
       };
 
-      // Simpan user dengan password di daftar users
+      // Simpan user ke daftar users (dengan password)
       users.push({ ...newUser, password });
       await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
 
-      // Simpan user yang sedang login tanpa password
+      // Simpan user login aktif (tanpa password)
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
       setUser(newUser);
 
+      console.log("✅ User registered:", newUser);
       return { success: true, message: 'Registrasi berhasil', user: newUser };
     } catch (error) {
       console.error('Error registering:', error);
@@ -143,6 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(userWithoutPassword));
       setUser(userWithoutPassword);
 
+      console.log("🔑 Login berhasil untuk:", userWithoutPassword.email, "-", userWithoutPassword.userType);
       return { success: true, message: 'Login berhasil', user: userWithoutPassword };
     } catch (error) {
       console.error('Error logging in:', error);
@@ -150,17 +152,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // ==============================
-  // 🚪 LOGOUT FUNCTION
-  // ==============================
-  const logout = async () => {
-    try {
-      await AsyncStorage.removeItem(USER_KEY);
-      setUser(null);
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
-  };
+
+const logout = async () => {
+  try {
+    await AsyncStorage.removeItem(USER_KEY);
+    setUser(null);
+    console.log("🚪 Logout berhasil, kembali ke homeGuest");
+    router.replace("/(tabsGuest)/homeGuest"); // ✅ arahkan manual
+  } catch (error) {
+    console.error("Error logging out:", error);
+  }
+};
 
   // ==============================
   // 🧩 UPDATE USER FUNCTION
@@ -168,6 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUser = async (userData: Partial<User>) => {
     try {
       if (!user) return;
+
       const updatedUser = { ...user, ...userData };
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
       setUser(updatedUser);
@@ -175,6 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const usersData = await AsyncStorage.getItem(USERS_KEY);
       const users = usersData ? JSON.parse(usersData) : [];
       const userIndex = users.findIndex((u: any) => u.id === user.id);
+
       if (userIndex !== -1) {
         users[userIndex] = { ...users[userIndex], ...userData };
         await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
@@ -197,7 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

@@ -48,7 +48,7 @@ export default function Profile() {
         text: t("common.confirm"),
         onPress: async () => {
           await logout();
-          router.replace("/auth/login");
+          router.replace("/(tabsGuest)/homeGuest");
         },
       },
     ]);
@@ -153,8 +153,8 @@ export default function Profile() {
             style={[styles.badge, { backgroundColor: theme.primary + "20" }]}
           >
             <Text style={[styles.badgeText, { color: theme.primary }]}>
-              {user?.userType === "farmer"
-                ? t("auth.farmer")
+              {user?.userType === "owner"
+                ? t("auth.owner")
                 : user?.userType === "buyer"
                 ? t("auth.buyer")
                 : "User"}

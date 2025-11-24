@@ -10,7 +10,10 @@
     "delete": "Hapus",
     "edit": "Edit",
     "search": "Cari...",
-    "retry": "Coba Lagi"
+    "retry": "Coba Lagi",
+    "register": "Daftar Sekarang",
+    "login": "Masuk",
+    "logout": "Keluar"
   },
   "auth": {
     "login": "Masuk",
@@ -35,7 +38,12 @@
     "registerError": "Pendaftaran gagal",
     "passwordMismatch": "Kata sandi tidak cocok",
     "fillAllFields": "Harap isi semua kolom",
-    "address": "Alamat"
+    "address": "Alamat",
+    "userRole": "Pilih Jenis Pengguna",
+    "registerNow": "Daftar Sekarang",
+    "loginNow": "Masuk Sekarang",
+    "forgotPassword": "Lupa Kata Sandi?",
+    "locationPermission": "Izin lokasi diperlukan untuk mengambil posisi Anda."
   },
   "home": {
     "title": "Beranda",
@@ -58,6 +66,9 @@
     "outOfStock": "Habis",
     "available": "Tersedia",
     "addedToCart": "Ditambahkan ke keranjang!"
+  },
+  "favorites": {
+     "title": "Favorit"
   },
   "cart": {
     "title": "Keranjang",
@@ -169,5 +180,17 @@
   "cancel": "Batal",
   "permissionTitle": "Izin Diperlukan",
   "permissionDesc": "Izinkan akses galeri untuk memilih gambar bukti."
-}
+},
+"location": {
+    "title": "Lokasi Anda",
+    "hint": "Tekan peta untuk memilih lokasi manual",
+    "useCurrent": "Gunakan Lokasi Saya",
+    "addressPlaceholder": "Masukkan alamat atau ambil otomatis...",
+    "error": "Gagal mengambil lokasi."
+  },
+
+  "steps": {
+    "step1": "Langkah 1: Informasi Akun",
+    "step2": "Langkah 2: Role & Lokasi"
+  }
 }

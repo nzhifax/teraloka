@@ -154,8 +154,8 @@ export default function Profile() {
             style={[styles.badge, { backgroundColor: theme.primary + "20" }]}
           >
             <Text style={[styles.badgeText, { color: theme.primary }]}>
-              {user?.userType === "farmer"
-                ? t("auth.farmer")
+              {user?.userType === "owner"
+                ? t("auth.owner")
                 : user?.userType === "buyer"
                 ? t("auth.buyer")
                 : "User"}
