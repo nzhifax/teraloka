@@ -2,24 +2,40 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export default function LandingPage() {
   const { theme } = useTheme();
   const router = useRouter();
 
-  // 🔥 Animasi fade-in
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Mulai animasi fade-in
+    // Fade in
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 900, // 0.9 detik
+      duration: 800,
       useNativeDriver: true,
     }).start();
 
-    // ⏳ Setelah 2 detik → pindah ke guest
+    // Floating loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -10,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
     const timer = setTimeout(() => {
       router.replace("/(tabsGuest)/homeGuest");
     }, 3000);
@@ -28,36 +44,83 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        { backgroundColor: theme.background, opacity: fadeAnim },
+    <LinearGradient
+      colors={[
+        "#0F172A",          // deep navy (kontras atas)
+        theme.primary,      // brand color
+        theme.background,   // bawah
       ]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.container}
     >
-      <Ionicons name="home-outline" size={60} color={theme.primary} />
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: floatAnim }],
+          },
+        ]}
+      >
+        {/* Glow logo */}
+        <LinearGradient
+          colors={[
+            theme.primary + "66",
+            theme.primary + "00",
+          ]}
+          style={styles.logoGlow}
+        />
 
-      <Text style={[styles.title, { color: theme.primary }]}>Teraloka</Text>
+        <Ionicons
+          name="home-outline"
+          size={70}
+          color="#FFFFFF"
+          style={styles.logo}
+        />
 
-      <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-        Temukan & Sewakan Properti dengan Mudah
-      </Text>
-    </Animated.View>
+        <Text style={styles.title}>Teraloka</Text>
+
+        <Text style={styles.subtitle}>
+          Temukan & Sewakan Properti dengan Mudah
+        </Text>
+      </Animated.View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  logoGlow: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+  },
+
+  logo: {
+    marginBottom: 14,
+  },
+
   title: {
-    fontSize: 34,
-    fontWeight: "700",
-    marginTop: 16,
+    fontSize: 38,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.8,
   },
   subtitle: {
     fontSize: 14,
-    marginTop: 6,
+    marginTop: 8,
+    color: "#E5E7EB",
+    opacity: 0.9,
   },
 });

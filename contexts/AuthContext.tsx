@@ -18,7 +18,7 @@ export interface User {
   email: string;
   fullName: string;
   phone: string;
-  userType: 'owner' | 'buyer'; // ✅ ubah farmer → owner
+  userType: 'owner' | 'buyer' | 'admin'; 
   address?: string;
   photo?: string;
   gender?: 'male' | 'female' | 'other';
@@ -32,7 +32,7 @@ export interface RegisterData {
   password: string;
   fullName: string;
   phone: string;
-  userType: 'owner' | 'buyer'; // ✅ ubah farmer → owner
+  userType: 'owner' | 'buyer';
   address?: string;
   gender?: 'male' | 'female' | 'other';
   dob?: string;
@@ -64,9 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ==============================
-  // 🔁 Load user when app starts
-  // ==============================
+  // Load user saat app start
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -81,9 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loadUser();
   }, []);
 
-  // ==============================
-  // 🪪 REGISTER FUNCTION
-  // ==============================
+  // REGISTER FUNCTION
   const register = async (data: RegisterData): Promise<AuthResponse> => {
     const { email, password, fullName, phone, userType, address, gender, dob, location, photo } = data;
 
@@ -91,18 +87,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const usersData = await AsyncStorage.getItem(USERS_KEY);
       const users = usersData ? JSON.parse(usersData) : [];
 
-      // Cek jika email sudah ada
       const existingUser = users.find((u: any) => u.email === email);
-      if (existingUser) {
-        return { success: false, message: 'Email sudah terdaftar' };
-      }
+      if (existingUser) return { success: false, message: 'Email sudah terdaftar' };
 
       const newUser: User = {
         id: Date.now().toString(),
         email,
         fullName,
         phone,
-        userType, // ✅ owner atau buyer
+        userType,
         address,
         gender,
         dob,
@@ -111,15 +104,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         createdAt: new Date().toISOString(),
       };
 
-      // Simpan user ke daftar users (dengan password)
       users.push({ ...newUser, password });
       await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
 
-      // Simpan user login aktif (tanpa password)
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
       setUser(newUser);
 
-      console.log("✅ User registered:", newUser);
       return { success: true, message: 'Registrasi berhasil', user: newUser };
     } catch (error) {
       console.error('Error registering:', error);
@@ -127,24 +117,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // ==============================
-  // 🔐 LOGIN FUNCTION
-  // ==============================
+  // LOGIN FUNCTION (dengan admin)
   const login = async (email: string, password: string): Promise<AuthResponse> => {
     try {
+      // 1️⃣ Hardcode admin
+      const adminEmail = 'admin@lokatani.com';
+      const adminPassword = 'admin123';
+
+      if (email === adminEmail && password === adminPassword) {
+        const adminUser: User = {
+          id: 'admin-1',
+          email: adminEmail,
+          fullName: 'Administrator',
+          phone: '',
+          userType: 'admin',
+          createdAt: new Date().toISOString(),
+        };
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(adminUser));
+        setUser(adminUser);
+        return { success: true, message: 'Login berhasil (admin)', user: adminUser };
+      }
+
+      // 2️⃣ Cek user biasa
       const usersData = await AsyncStorage.getItem(USERS_KEY);
       const users = usersData ? JSON.parse(usersData) : [];
 
       const foundUser = users.find((u: any) => u.email === email && u.password === password);
-      if (!foundUser) {
-        return { success: false, message: 'Email atau kata sandi salah' };
-      }
+      if (!foundUser) return { success: false, message: 'Email atau kata sandi salah' };
 
       const { password: _, ...userWithoutPassword } = foundUser;
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(userWithoutPassword));
       setUser(userWithoutPassword);
 
-      console.log("🔑 Login berhasil untuk:", userWithoutPassword.email, "-", userWithoutPassword.userType);
       return { success: true, message: 'Login berhasil', user: userWithoutPassword };
     } catch (error) {
       console.error('Error logging in:', error);
@@ -152,21 +156,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // LOGOUT
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem(USER_KEY);
+      setUser(null);
+      router.replace("/(tabsGuest)/homeGuest");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
-const logout = async () => {
-  try {
-    await AsyncStorage.removeItem(USER_KEY);
-    setUser(null);
-    console.log("🚪 Logout berhasil, kembali ke homeGuest");
-    router.replace("/(tabsGuest)/homeGuest"); // ✅ arahkan manual
-  } catch (error) {
-    console.error("Error logging out:", error);
-  }
-};
-
-  // ==============================
-  // 🧩 UPDATE USER FUNCTION
-  // ==============================
+  // UPDATE USER
   const updateUser = async (userData: Partial<User>) => {
     try {
       if (!user) return;
@@ -195,13 +196,9 @@ const logout = async () => {
   );
 };
 
-// ==============================
-// 📦 Hook untuk akses konteks
-// ==============================
+// Hook
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

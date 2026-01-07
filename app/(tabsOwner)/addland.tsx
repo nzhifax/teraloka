@@ -3,376 +3,462 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
-  Image,
-  Alert,
-  Modal,
   TextInput,
   ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  SafeAreaView,
+  Image,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useTheme } from "../../contexts/ThemeContext";
+import * as Location from "expo-location";
+import MapView, { Marker } from "react-native-maps";
 
-interface Land {
-  id: string;
-  name: string;
-  location: string;
-  area: string;
-  soilType: string;
-  priceType: "sale" | "rent";
-  currency: "IDR" | "USD";
-  price: string;
-  unit: string;
-  description: string;
-  facilities: string[];
-  image: string;
-  createdAt: string;
-}
+const { width } = Dimensions.get("window");
+const PRIMARY = "#2563EB";
 
-const STORAGE_KEY = "@lokabumi:lands";
+export default function AddProperty() {
+  const [step, setStep] = useState(1);
 
-export default function AddLand() {
-  const { theme } = useTheme();
-  const [lands, setLands] = useState<Land[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingLand, setEditingLand] = useState<Land | null>(null);
   const [form, setForm] = useState({
-    name: "",
-    location: "",
-    area: "",
-    soilType: "",
-    priceType: "sale" as "sale" | "rent",
-    currency: "IDR" as "IDR" | "USD",
-    price: "",
-    unit: "per m²",
-    description: "",
-    facilities: [] as string[],
     image: "",
+    listingType: "Dijual",
+    propertyType: "Rumah",
+    title: "",
+    price: "",
+    landSize: "",
+    buildingSize: "",
+    bedroom: "",
+    bathroom: "",
+    address: "",
+    latitude: 0,
+    longitude: 0,
   });
-  const [submitting, setSubmitting] = useState(false);
 
-  // Load data
-  useEffect(() => {
-    loadLands();
-  }, []);
-
-  const loadLands = async () => {
-    try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) setLands(JSON.parse(data));
-    } catch {
-      Alert.alert("Error", "Gagal memuat data lahan");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveLands = async (newLands: Land[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newLands));
-      setLands(newLands);
-    } catch {
-      Alert.alert("Error", "Gagal menyimpan data");
-    }
-  };
-
+  /* ================= IMAGE ================= */
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Izin Diperlukan", "Izinkan akses galeri untuk memilih gambar");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
+    const res = await ImagePicker.launchImageLibraryAsync({
       quality: 0.7,
       base64: true,
     });
-
-    if (!result.canceled && result.assets[0].base64) {
-      setForm({ ...form, image: `data:image/jpeg;base64,${result.assets[0].base64}` });
-    }
-  };
-
-  const toggleFacility = (facility: string) => {
-    const updated = form.facilities.includes(facility)
-      ? form.facilities.filter((f) => f !== facility)
-      : [...form.facilities, facility];
-    setForm({ ...form, facilities: updated });
-  };
-
-  const handleSubmit = async () => {
-    if (!form.name || !form.location || !form.area || !form.price || !form.image) {
-      Alert.alert("Error", "Lengkapi semua kolom wajib dan pilih gambar!");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const newLand: Land = {
-        id: editingLand ? editingLand.id : Date.now().toString(),
+    if (!res.canceled && res.assets[0].base64) {
+      setForm({
         ...form,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updated = editingLand
-        ? lands.map((l) => (l.id === editingLand.id ? newLand : l))
-        : [...lands, newLand];
-
-      await saveLands(updated);
-      Alert.alert("Sukses", editingLand ? "Lahan diperbarui" : "Lahan ditambahkan");
-      setModalVisible(false);
-      resetForm();
-    } catch {
-      Alert.alert("Error", "Gagal menyimpan data");
-    } finally {
-      setSubmitting(false);
+        image: `data:image/jpeg;base64,${res.assets[0].base64}`,
+      });
     }
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert("Hapus Lahan", "Yakin ingin menghapus lahan ini?", [
-      { text: "Batal", style: "cancel" },
-      {
-        text: "Hapus",
-        style: "destructive",
-        onPress: async () => {
-          const updated = lands.filter((l) => l.id !== id);
-          await saveLands(updated);
-          Alert.alert("Sukses", "Lahan dihapus");
-        },
-      },
-    ]);
-  };
+  /* ================= LOCATION ================= */
+  useEffect(() => {
+    (async () => {
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
 
-  const openEditModal = (land: Land) => {
-    setEditingLand(land);
-    setForm({ ...land });
-    setModalVisible(true);
-  };
+      const loc = await Location.getCurrentPositionAsync({});
+      const geo = await Location.reverseGeocodeAsync(
+        loc.coords
+      );
 
-  const openCreateModal = () => {
-    resetForm();
-    setModalVisible(true);
-  };
+      setForm((p) => ({
+        ...p,
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        address:
+          geo[0]?.street ||
+          geo[0]?.city ||
+          "Lokasi terdeteksi",
+      }));
+    })();
+  }, []);
 
-  const resetForm = () => {
-    setEditingLand(null);
-    setForm({
-      name: "",
-      location: "",
-      area: "",
-      soilType: "",
-      priceType: "sale",
-      currency: "IDR",
-      price: "",
-      unit: "per m²",
-      description: "",
-      facilities: [],
-      image: "",
-    });
-  };
+  const isLand = form.propertyType === "Tanah";
 
-  const renderLand = ({ item }: { item: Land }) => (
-    <View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}>
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <View style={styles.info}>
-        <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
-        <Text style={[styles.location, { color: theme.textSecondary }]}>{item.location}</Text>
-        <Text style={[styles.price, { color: theme.primary }]}>
-          {item.currency === "IDR" ? "Rp" : "$"} {item.price}
-        </Text>
-        <Text style={[styles.desc, { color: theme.textSecondary }]} numberOfLines={2}>
-          {item.description}
-        </Text>
-      </View>
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={() => openEditModal(item)}>
-          <Ionicons name="create-outline" size={20} color="#2196F3" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDelete(item.id)}>
-          <Ionicons name="trash-outline" size={20} color="#f44336" />
-        </TouchableOpacity>
-      </View>
+  /* ================= STEPPER ================= */
+  const Stepper = () => (
+    <View style={styles.stepper}>
+      {[1, 2].map((s) => (
+        <React.Fragment key={s}>
+          <View
+            style={[
+              styles.stepCircle,
+              step >= s && styles.stepActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.stepText,
+                step >= s && { color: "#fff" },
+              ]}
+            >
+              {s}
+            </Text>
+          </View>
+          {s === 1 && <View style={styles.stepLine} />}
+        </React.Fragment>
+      ))}
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
+  /* ================= STEP 1 ================= */
+  const StepOne = () => (
+    <>
+      {/* Upload */}
+      <TouchableOpacity
+        style={styles.imageBox}
+        onPress={pickImage}
+      >
+        {form.image ? (
+          <Image
+            source={{ uri: form.image }}
+            style={styles.image}
+          />
+        ) : (
+          <>
+            <Ionicons
+              name="camera-outline"
+              size={34}
+              color="#6B7280"
+            />
+            <Text style={styles.imageText}>
+              Upload Foto Properti
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerText, { color: theme.text }]}>Lahan Saya</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.primary }]}
-          onPress={openCreateModal}
-        >
-          <Ionicons name="leaf-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* Listing Type */}
+      <Row>
+        {["Dijual", "Disewa"].map((t) => (
+          <Chip
+            key={t}
+            label={t}
+            active={form.listingType === t}
+            onPress={() =>
+              setForm({ ...form, listingType: t })
+            }
+          />
+        ))}
+      </Row>
 
-      {lands.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="map-outline" size={64} color={theme.textSecondary} />
-          <Text style={[styles.emptyText, { color: theme.text }]}>Belum ada data lahan</Text>
-          <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-            Tambahkan lahan pertama Anda
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={lands}
-          renderItem={renderLand}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-        />
+      {/* Property Type */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginBottom: 12 }}
+      >
+        {["Rumah", "Apartemen", "Tanah", "Kos", "Ruko"].map(
+          (t) => (
+            <Chip
+              key={t}
+              label={t}
+              active={form.propertyType === t}
+              onPress={() =>
+                setForm({ ...form, propertyType: t })
+              }
+            />
+          )
+        )}
+      </ScrollView>
+
+      <Input
+        placeholder="Judul Properti"
+        value={form.title}
+        onChange={(v) =>
+          setForm({ ...form, title: v })
+        }
+      />
+
+      <Input
+        placeholder={
+          form.listingType === "Disewa"
+            ? "Harga / Bulan"
+            : "Harga Jual"
+        }
+        keyboard="numeric"
+        value={form.price}
+        onChange={(v) =>
+          setForm({ ...form, price: v })
+        }
+      />
+
+      {!isLand && (
+        <Row>
+          <Input
+            small
+            placeholder="LB (m²)"
+            value={form.buildingSize}
+            onChange={(v) =>
+              setForm({ ...form, buildingSize: v })
+            }
+          />
+          <Input
+            small
+            placeholder="KT"
+            value={form.bedroom}
+            onChange={(v) =>
+              setForm({ ...form, bedroom: v })
+            }
+          />
+        </Row>
       )}
 
-      {/* Modal */}
-      <Modal visible={modalVisible} animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={[styles.modal, { backgroundColor: theme.background }]}
+      <Next onPress={() => setStep(2)} />
+    </>
+  );
+
+  /* ================= STEP 2 ================= */
+  const StepTwo = () => (
+    <>
+      <MapView
+        style={styles.map}
+        region={{
+          latitude: form.latitude || -7.8,
+          longitude: form.longitude || 110.4,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+      >
+        <Marker
+          draggable
+          coordinate={{
+            latitude: form.latitude,
+            longitude: form.longitude,
+          }}
+          onDragEnd={(e) =>
+            setForm({
+              ...form,
+              latitude:
+                e.nativeEvent.coordinate.latitude,
+              longitude:
+                e.nativeEvent.coordinate.longitude,
+            })
+          }
+        />
+      </MapView>
+
+      <Text style={styles.address}>
+        📍 {form.address}
+      </Text>
+
+      <TouchableOpacity style={styles.publish}>
+        <Text style={styles.publishText}>
+          Publish Properti
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() =>
+            step === 1 ? null : setStep(step - 1)
+          }
         >
-          <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={28} color={theme.text} />
-              </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>
-                {editingLand ? "Edit Lahan" : "Tambah Lahan"}
-              </Text>
-              <View style={{ width: 28 }} />
-            </View>
+          <Ionicons name="arrow-back" size={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          Tambah Properti
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
 
-            {/* Image */}
-            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-              {form.image ? (
-                <Image source={{ uri: form.image }} style={styles.imagePreview} />
-              ) : (
-                <View style={[styles.imagePlaceholder, { backgroundColor: theme.border }]}>
-                  <Ionicons name="camera-outline" size={48} color={theme.textSecondary} />
-                  <Text style={{ color: theme.textSecondary, marginTop: 8 }}>Pilih Foto Lahan</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+      <Stepper />
 
-            {/* Inputs */}
-            {[
-              { key: "name", placeholder: "Nama Lahan *" },
-              { key: "location", placeholder: "Lokasi Lahan *" },
-              { key: "area", placeholder: "Luas (m²) *", keyboardType: "numeric" },
-              { key: "soilType", placeholder: "Tipe Tanah (misal: Lempung, Gambut)" },
-              { key: "price", placeholder: "Harga Lahan *", keyboardType: "numeric" },
-              { key: "unit", placeholder: "Satuan (contoh: per m², per tahun)" },
-            ].map((field) => (
-              <TextInput
-                key={field.key}
-                style={[
-                  styles.input,
-                  { borderColor: theme.border, color: theme.text, backgroundColor: theme.inputBackground },
-                ]}
-                placeholderTextColor={theme.textSecondary}
-                placeholder={field.placeholder}
-                keyboardType={field.keyboardType || "default"}
-                value={(form as any)[field.key]}
-                onChangeText={(text) => setForm({ ...form, [field.key]: text })}
-              />
-            ))}
-
-            <TextInput
-              style={[
-                styles.textArea,
-                { borderColor: theme.border, color: theme.text, backgroundColor: theme.inputBackground },
-              ]}
-              placeholder="Deskripsi Lahan..."
-              placeholderTextColor={theme.textSecondary}
-              value={form.description}
-              multiline
-              numberOfLines={4}
-              onChangeText={(text) => setForm({ ...form, description: text })}
-            />
-
-            <Text style={[styles.facilityTitle, { color: theme.text }]}>Fasilitas:</Text>
-            <View style={styles.facilityContainer}>
-              {["Air", "Listrik", "Irigasi", "Dekat Jalan", "Legalitas"].map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={[
-                    styles.facilityButton,
-                    { backgroundColor: form.facilities.includes(f) ? theme.primary : theme.surface },
-                  ]}
-                  onPress={() => toggleFacility(f)}
-                >
-                  <Text style={{ color: form.facilities.includes(f) ? "#fff" : theme.text }}>{f}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.submit, { backgroundColor: theme.primary }]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.submitText}>
-                  {editingLand ? "Perbarui Lahan" : "Tambah Lahan"}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
-    </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        {step === 1 ? <StepOne /> : <StepTwo />}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+/* ================= COMPONENT ================= */
+
+const Input = ({
+  placeholder,
+  value,
+  onChange,
+  small,
+  keyboard,
+}: any) => (
+  <TextInput
+    placeholder={placeholder}
+    placeholderTextColor="#9CA3AF"
+    keyboardType={keyboard}
+    value={value}
+    onChangeText={onChange}
+    style={[
+      styles.input,
+      small && { width: "48%" },
+    ]}
+  />
+);
+
+const Chip = ({ label, active, onPress }: any) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[
+      styles.chip,
+      active && styles.chipActive,
+    ]}
+  >
+    <Text
+      style={{
+        color: active ? "#fff" : "#374151",
+        fontWeight: "600",
+      }}
+    >
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+const Row = ({ children }: any) => (
+  <View style={styles.row}>{children}</View>
+);
+
+const Next = ({ onPress }: any) => (
+  <TouchableOpacity style={styles.next} onPress={onPress}>
+    <Text style={styles.nextText}>Lanjut</Text>
+  </TouchableOpacity>
+);
+
+/* ================= STYLE ================= */
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, paddingTop: 60 },
-  headerText: { fontSize: 22, fontWeight: "bold" },
-  addButton: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
-  card: { flexDirection: "row", padding: 12, borderRadius: 12, marginHorizontal: 16, marginBottom: 12, elevation: 2 },
-  image: { width: 80, height: 80, borderRadius: 8 },
-  info: { flex: 1, marginLeft: 12 },
-  name: { fontSize: 16, fontWeight: "700" },
-  location: { fontSize: 14 },
-  price: { fontSize: 16, fontWeight: "700", marginTop: 4 },
-  desc: { fontSize: 13, marginTop: 4 },
-  actions: { justifyContent: "center", gap: 6, paddingHorizontal: 8 },
-  empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
-  emptyText: { fontSize: 20, fontWeight: "700", marginTop: 10 },
-  emptySub: { fontSize: 14 },
-  modal: { flex: 1 },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, paddingTop: 60 },
-  modalTitle: { fontSize: 20, fontWeight: "700" },
-  imagePicker: { height: 200, borderRadius: 12, marginHorizontal: 20, overflow: "hidden", marginBottom: 20 },
-  imagePreview: { width: "100%", height: "100%" },
-  imagePlaceholder: { flex: 1, justifyContent: "center", alignItems: "center" },
-  input: { borderWidth: 1, borderRadius: 10, padding: 12, marginHorizontal: 20, marginBottom: 12, fontSize: 14 },
-  textArea: { borderWidth: 1, borderRadius: 10, padding: 12, marginHorizontal: 20, marginBottom: 12 },
-  facilityTitle: { fontSize: 16, fontWeight: "600", marginHorizontal: 20, marginTop: 10 },
-  facilityContainer: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: 20, marginTop: 8, gap: 8 },
-  facilityButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  submit: { margin: 20, borderRadius: 10, paddingVertical: 14, alignItems: "center" },
-  submitText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  list: { paddingBottom: 100 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  safe: { flex: 1, backgroundColor: "#fff" },
+
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    justifyContent: "space-between",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  stepper: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  stepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepActive: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+  stepText: {
+    fontWeight: "600",
+    color: "#9CA3AF",
+  },
+  stepLine: {
+    width: 60,
+    height: 2,
+    backgroundColor: "#E5E7EB",
+  },
+
+  content: {
+    padding: 16,
+    paddingBottom: 120,
+  },
+
+  imageBox: {
+    height: 180,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
+  },
+  imageText: {
+    marginTop: 6,
+    color: "#6B7280",
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 14,
+    color: "#111827",
+    backgroundColor: "#fff",
+    marginBottom: 12,
+  },
+
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginRight: 8,
+  },
+  chipActive: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+
+  next: {
+    backgroundColor: PRIMARY,
+    padding: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  nextText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+
+  map: {
+    height: 260,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  address: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#4B5563",
+  },
+
+  publish: {
+    backgroundColor: PRIMARY,
+    padding: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  publishText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
+  },
 });

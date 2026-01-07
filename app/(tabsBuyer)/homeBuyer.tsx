@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,123 +8,75 @@ import {
   TouchableOpacity,
   View,
   Image,
-  Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTheme } from "../../contexts/ThemeContext";
 import { useRouter } from "expo-router";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useLands } from "../../contexts/LandContext";
 
-// 🔹 Komponen Card Properti
-const PropertyCard = ({ land, onPress }: any) => (
-  <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-    <Image source={{ uri: land.image }} style={styles.cardImage} />
-    <View style={styles.cardContent}>
-      <View style={styles.tagContainer}>
-        <Text style={styles.tagText}>{land.type}</Text>
-      </View>
+/* =========================
+   PROPERTY CARD
+========================= */
+const PropertyCard = ({ land, viewMode, onPress }: any) => {
+  const isGrid = viewMode === "grid";
 
-      <Text style={styles.landName}>{land.name}</Text>
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[styles.card, isGrid && styles.gridCard]}
+    >
+      <View>
+        <Image source={{ uri: land.image }} style={styles.cardImage} />
 
-      <View style={styles.locationRow}>
-        <Ionicons name="location-outline" size={14} color="#6B7280" />
-        <Text style={styles.landLocation}>{land.location}</Text>
-      </View>
-
-      <View style={styles.priceRow}>
-        <Text style={styles.landPrice}>
-          Rp{land.price.toLocaleString("id-ID")}{" "}
-          <Text style={styles.unitText}>
-            {land.isForSale ? "/ha" : "/tahun"}
-          </Text>
-        </Text>
-        <View style={styles.rating}>
-          <Ionicons name="star" size={14} color="#FACC15" />
+        <View style={styles.ratingBadge}>
+          <Ionicons name="star" size={12} color="#FACC15" />
           <Text style={styles.ratingText}>{land.rating}</Text>
         </View>
       </View>
-    </View>
-  </TouchableOpacity>
-);
 
-// 🔹 Komponen Utama
-export default function HomeGuest() {
+      <View style={styles.cardContent}>
+        <Text numberOfLines={1} style={styles.landName}>
+          {land.name}
+        </Text>
+
+        <Text style={styles.landPrice}>
+          Rp{land.price?.toLocaleString("id-ID")}
+        </Text>
+
+        <View style={styles.locationRow}>
+          <Ionicons name="location-outline" size={12} color="#6B7280" />
+          <Text numberOfLines={1} style={styles.landLocation}>
+            {land.location}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+/* =========================
+   MAIN PAGE
+========================= */
+export default function HomeBuyer() {
   const { theme } = useTheme();
+  const { lands } = useLands();
   const router = useRouter();
-  const { lands, setLands } = useLands();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState<"all" | "sale" | "rent">(
-    "all"
-  );
-  const [sortOption, setSortOption] = useState("none");
-  const [isSortModalVisible, setSortModalVisible] = useState(false);
+  const [selectedStatus, setSelectedStatus] =
+    useState<"all" | "sale" | "rent">("all");
+  const [sortOption, setSortOption] =
+    useState<"none" | "lowToHigh" | "highToLow" | "rating">("none");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isFilterVisible, setFilterVisible] = useState(false);
 
-  // 🌱 Data Dummy Awal
-  useEffect(() => {
-    if (lands.length === 0) {
-      setLands([
-        {
-          id: "1",
-          name: "Sawah Subur Mlati",
-          location: "Sleman, Yogyakarta",
-          price: 120000000,
-          isForSale: true,
-          rating: 4.8,
-          type: "Sawah",
-          image:
-            "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80",
-        },
-        {
-          id: "2",
-          name: "Lahan Kosong Strategis",
-          location: "Kalasan, Sleman",
-          price: 85000000,
-          isForSale: true,
-          rating: 4.6,
-          type: "Lahan",
-          image:
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&q=80",
-        },
-        {
-          id: "3",
-          name: "Rumah Klasik Jogja",
-          location: "Umbulharjo, Yogyakarta",
-          price: 65000000,
-          isForSale: false,
-          rating: 4.7,
-          type: "Rumah",
-          image:
-            "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&q=80",
-        },
-        {
-          id: "4",
-          name: "Kebun Buah Bantul",
-          location: "Bantul, Yogyakarta",
-          price: 97000000,
-          isForSale: false,
-          rating: 4.9,
-          type: "Kebun",
-          image:
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80",
-        },
-      ]);
-    }
-  }, []);
-
-  // 🔍 Filter + Sort
+  /* =========================
+     FILTER + SORT
+  ========================= */
   const filteredLands = useMemo(() => {
-    let data = lands;
-
-    if (selectedCategory !== "all") {
-      data = data.filter((l) =>
-        l.type.toLowerCase().includes(selectedCategory.toLowerCase())
-      );
-    }
-
-    if (selectedStatus === "sale") data = data.filter((l) => l.isForSale);
-    else if (selectedStatus === "rent") data = data.filter((l) => !l.isForSale);
+    let data = [...lands];
 
     if (searchQuery.trim()) {
       data = data.filter((l) =>
@@ -133,206 +84,153 @@ export default function HomeGuest() {
       );
     }
 
-    if (sortOption === "lowToHigh")
-      data = [...data].sort((a, b) => a.price - b.price);
-    else if (sortOption === "highToLow")
-      data = [...data].sort((a, b) => b.price - a.price);
-    else if (sortOption === "rating")
-      data = [...data].sort((a, b) => b.rating - a.rating);
+    if (selectedStatus === "sale") {
+      data = data.filter((l) => l.isForSale);
+    }
+
+    if (selectedStatus === "rent") {
+      data = data.filter((l) => !l.isForSale);
+    }
+
+    if (sortOption === "lowToHigh") {
+      data = data.sort((a, b) => (a.price || 0) - (b.price || 0));
+    }
+
+    if (sortOption === "highToLow") {
+      data = data.sort((a, b) => (b.price || 0) - (a.price || 0));
+    }
+
+    if (sortOption === "rating") {
+      data = data.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    }
 
     return data;
-  }, [lands, searchQuery, selectedCategory, selectedStatus, sortOption]);
-
-  const categories = [
-    { key: "all", label: "Semua", icon: "earth-outline" },
-    { key: "sawah", label: "Sawah", icon: "leaf-outline" },
-    { key: "lahan", label: "Lahan", icon: "trail-sign-outline" },
-    { key: "rumah", label: "Rumah", icon: "home-outline" },
-    { key: "ruko", label: "Ruko", icon: "business-outline" },
-  ];
+  }, [lands, searchQuery, selectedStatus, sortOption]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Scroll Utama */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        
-        {/* 🔹 Header */}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* HEADER */}
         <View style={styles.header}>
           <View>
             <Text style={[styles.brandTitle, { color: theme.primary }]}>
-              teraloka
+              Teraloka
             </Text>
-            <Text style={[styles.brandSubtitle, { color: theme.textSecondary }]}>
-              Jelajahi tanah, temukan peluang 🌾
-            </Text>
+            <Text style={styles.subtitle}>Jelajahi properti terbaik</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => Alert.alert("Notifikasi", "Belum ada notifikasi baru 🌱")}
-          >
-            <Ionicons name="notifications-outline" size={22} color={theme.text} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() =>
+                setViewMode(viewMode === "grid" ? "list" : "grid")
+              }
+            >
+              <Ionicons
+                name={viewMode === "grid" ? "list-outline" : "grid-outline"}
+                size={22}
+                color={theme.text}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: theme.primary }]}
+              onPress={() => setFilterVisible(true)}
+            >
+              <Ionicons name="filter-outline" size={22} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* 🔹 Pencarian */}
-        <View
-          style={[
-            styles.searchContainer,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
+        {/* SEARCH */}
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={20} color="#6B7280" />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Cari sawah, rumah, atau lahan..."
-            placeholderTextColor={theme.textSecondary}
+            placeholder="Cari properti..."
+            placeholderTextColor="#9CA3AF"
+            style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity
-            style={[styles.sortButton, { backgroundColor: theme.primary }]}
-            onPress={() => setSortModalVisible(true)}
-          >
-            <Ionicons name="options-outline" size={20} color="#FFF" />
-          </TouchableOpacity>
         </View>
 
-        {/* 🔹 Kategori */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
+        {/* LIST */}
+        <View
+          style={[
+            styles.listWrapper,
+            viewMode === "grid" && styles.gridWrapper,
+          ]}
         >
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat.key}
-              style={[
-                styles.categoryItem,
-                {
-                  backgroundColor:
-                    selectedCategory === cat.key ? theme.primary : theme.surface,
-                },
-              ]}
-              onPress={() => setSelectedCategory(cat.key)}
-            >
-              <Ionicons
-                name={cat.icon as any}
-                size={22}
-                color={selectedCategory === cat.key ? "#FFF" : theme.text}
-              />
-              <Text
-                style={[
-                  styles.categoryLabel,
-                  { color: selectedCategory === cat.key ? "#FFF" : theme.text },
-                ]}
-              >
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* 🔹 Filter Status */}
-        <View style={styles.statusContainer}>
-          {[
-            { key: "all", label: "Semua" },
-            { key: "sale", label: "Dijual" },
-            { key: "rent", label: "Disewa" },
-          ].map((status) => (
-            <TouchableOpacity
-              key={status.key}
-              style={[
-                styles.statusButton,
-                {
-                  backgroundColor:
-                    selectedStatus === status.key ? theme.primary : theme.surface,
-                  borderColor: theme.border,
-                },
-              ]}
-              onPress={() => setSelectedStatus(status.key as any)}
-            >
-              <Text
-                style={{
-                  color: selectedStatus === status.key ? "#FFF" : theme.text,
-                  fontWeight: "600",
-                }}
-              >
-                {status.label}
-              </Text>
-            </TouchableOpacity>
+          {filteredLands.map((item) => (
+            <PropertyCard
+              key={item.id}
+              land={item}
+              viewMode={viewMode}
+              onPress={() =>
+                router.push({
+                  pathname: "/product/[id]",
+                  params: { id: item.id },
+                })
+              }
+            />
           ))}
         </View>
-
-        {/* 🔹 Rekomendasi */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Rekomendasi Tanah
-          </Text>
-          <TouchableOpacity>
-            <Text style={[styles.seeAll, { color: theme.primary }]}>Lihat Semua</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 🔹 List Properti */}
-        {filteredLands.map((item) => (
-          <PropertyCard
-            key={item.id}
-            land={item}
-            onPress={() =>
-              router.push({ pathname: "/product/[id]", params: { id: item.id } })
-            }
-          />
-        ))}
       </ScrollView>
 
-      {/* 🔹 Tombol ke Maps */}
+      {/* MAP BUTTON */}
       <TouchableOpacity
-        activeOpacity={0.85}
-        style={[styles.floatingMapButton, { backgroundColor: theme.primary }]}
+        style={[styles.mapButton, { backgroundColor: theme.primary }]}
         onPress={() => router.push("/maps")}
       >
-        <Ionicons name="map-outline" size={26} color="#FFF" />
-        <Text style={styles.floatingText}>Lihat Peta</Text>
+        <Ionicons name="map-outline" size={22} color="#FFF" />
+        <Text style={styles.mapText}>Lihat Peta</Text>
       </TouchableOpacity>
 
-      {/* 🔹 Modal Sort */}
-      <Modal visible={isSortModalVisible} transparent animationType="slide">
+      {/* FILTER MODAL */}
+      <Modal transparent visible={isFilterVisible} animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
-              Urutkan Berdasarkan
-            </Text>
+          <View style={styles.filterSheet}>
+            <Text style={styles.modalTitle}>Filter & Urutkan</Text>
 
-            {[
-              { key: "lowToHigh", label: "Harga: Termurah" },
-              { key: "highToLow", label: "Harga: Termahal" },
-              { key: "rating", label: "Rating Tertinggi" },
-            ].map((opt) => (
-              <TouchableOpacity
-                key={opt.key}
-                onPress={() => {
-                  setSortOption(opt.key);
-                  setSortModalVisible(false);
-                }}
-                style={styles.modalOption}
-              >
-                <Text
-                  style={{
-                    color: sortOption === opt.key ? theme.primary : theme.text,
-                    fontWeight: sortOption === opt.key ? "700" : "400",
-                  }}
+            <View style={styles.chipRow}>
+              {["all", "sale", "rent"].map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.chip, selectedStatus === s && styles.chipActive]}
+                  onPress={() => setSelectedStatus(s as any)}
                 >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text style={{ color: selectedStatus === s ? "#FFF" : "#333" }}>
+                    {s === "all" ? "Semua" : s === "sale" ? "Dijual" : "Disewa"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.chipRow}>
+              {[
+                { key: "lowToHigh", label: "Termurah" },
+                { key: "highToLow", label: "Termahal" },
+                { key: "rating", label: "Rating" },
+              ].map((o) => (
+                <TouchableOpacity
+                  key={o.key}
+                  style={[styles.chip, sortOption === o.key && styles.chipActive]}
+                  onPress={() => setSortOption(o.key as any)}
+                >
+                  <Text style={{ color: sortOption === o.key ? "#FFF" : "#333" }}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setSortModalVisible(false)}
+              style={styles.applyButton}
+              onPress={() => setFilterVisible(false)}
             >
-              <Text style={{ color: theme.error }}>Tutup</Text>
+              <Text style={styles.applyText}>Terapkan</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -341,133 +239,194 @@ export default function HomeGuest() {
   );
 }
 
-// 🎨 Style
+/* =========================
+   STYLES
+========================= */
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
   header: {
+    padding: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
   },
-  brandTitle: { fontSize: 26, fontWeight: "800" },
-  brandSubtitle: { fontSize: 13, fontWeight: "400", marginTop: -2 },
-  notificationButton: {
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: "rgba(0,0,0,0.05)",
+
+  brandTitle: {
+    fontSize: 26,
+    fontWeight: "800",
   },
-  searchContainer: {
+
+  subtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+
+  headerActions: {
     flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 20,
+    gap: 10,
+  },
+
+  iconButton: {
+    padding: 10,
     borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: "rgba(0,0,0,0.06)",
+  },
+
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginBottom: 10,
     paddingHorizontal: 14,
-    height: 48,
-    marginBottom: 10,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
   },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 15 },
-  sortButton: {
-    padding: 8,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  categoryScroll: { paddingHorizontal: 16, paddingVertical: 10 },
-  categoryItem: {
-    width: 90,
-    aspectRatio: 1,
-    borderRadius: 16,
-    marginRight: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  categoryLabel: { marginTop: 6, fontSize: 13, fontWeight: "500" },
-  statusContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginHorizontal: 20,
-    marginVertical: 10,
-  },
-  statusButton: {
+
+  searchInput: {
+    marginLeft: 8,
+    fontSize: 15,
     flex: 1,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: "center",
   },
-  sectionHeader: {
+
+  listWrapper: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+
+  gridWrapper: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 10,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "700" },
-  seeAll: { fontSize: 13, fontWeight: "500" },
+
   card: {
     backgroundColor: "#FFF",
     borderRadius: 14,
-    marginHorizontal: 20,
     marginBottom: 16,
     overflow: "hidden",
     elevation: 3,
   },
-  cardImage: { width: "100%", height: 150 },
-  cardContent: { padding: 12 },
-  tagContainer: {
-    backgroundColor: "#EEF6FF",
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 6,
+
+  gridCard: {
+    width: "48%",
   },
-  tagText: { fontSize: 11, color: "#2563EB", fontWeight: "600" },
-  landName: { fontSize: 15, fontWeight: "700", marginBottom: 4 },
-  landLocation: { fontSize: 13, color: "#6B7280", marginLeft: 4 },
-  priceRow: {
+
+  cardImage: {
+    width: "100%",
+    height: 140,
+  },
+
+  ratingBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 6,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
-  landPrice: { fontSize: 14, fontWeight: "700", color: "#111" },
-  unitText: { fontSize: 12, color: "#6B7280", fontWeight: "500" },
-  rating: { flexDirection: "row", alignItems: "center" },
-  ratingText: { fontSize: 13, marginLeft: 4, color: "#6B7280" },
-  floatingMapButton: {
+
+  ratingText: {
+    color: "#FFF",
+    fontSize: 11,
+    marginLeft: 4,
+  },
+
+  cardContent: {
+    padding: 12,
+  },
+
+  landName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  landPrice: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#2563EB",
+  },
+
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+
+  landLocation: {
+    fontSize: 12,
+    marginLeft: 4,
+    color: "#6B7280",
+  },
+
+  mapButton: {
     position: "absolute",
     bottom: 24,
     alignSelf: "center",
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 30,
-    elevation: 8,
+    elevation: 6,
+    alignItems: "center",
   },
-  floatingText: {
+
+  mapText: {
     color: "#FFF",
     fontWeight: "700",
-    fontSize: 15,
     marginLeft: 8,
   },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(0,0,0,0.35)",
     justifyContent: "flex-end",
   },
-  modalContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+
+  filterSheet: {
+    backgroundColor: "#FFF",
     padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 16 },
-  modalOption: { paddingVertical: 12 },
-  closeButton: { marginTop: 20, alignItems: "center" },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginVertical: 12,
+  },
+
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#EEE",
+  },
+
+  chipActive: {
+    backgroundColor: "#2563EB",
+  },
+
+  applyButton: {
+    marginTop: 10,
+    backgroundColor: "#2563EB",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  applyText: {
+    color: "#FFF",
+    fontWeight: "700",
+  },
 });

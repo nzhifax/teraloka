@@ -1,30 +1,59 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Image,
   TextInput,
-  Platform,
-  Modal,
-  Alert,
-  ScrollView,  
+  Image,
+  FlatList,
 } from "react-native";
-import MapView, { Marker, Polygon, Circle } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import MapView, { Marker, Circle, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
-import { useTheme } from "../contexts/ThemeContext";
-import { useLands } from "../contexts/LandContext";
+import Slider from "@react-native-community/slider";
+import { Ionicons } from "@expo/vector-icons";
 
 const { height } = Dimensions.get("window");
 
-// 🔹 Hitung jarak antara dua titik (km)
-const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; // radius bumi (km)
+/* =======================
+   DUMMY DATA
+======================= */
+const lands = [
+  {
+    id: 1,
+    name: "Sawah Subur Sleman",
+    location: "Sleman, Yogyakarta",
+    price: 120000000,
+    rating: 4.8,
+    type: "sale",
+    image:
+      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800",
+    coordinate: { latitude: -7.760, longitude: 110.377 },
+  },
+  {
+    id: 2,
+    name: "Lahan Strategis Bantul",
+    location: "Bantul, Yogyakarta",
+    price: 85000000,
+    rating: 4.6,
+    type: "rent",
+    image:
+      "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800",
+    coordinate: { latitude: -7.840, longitude: 110.325 },
+  },
+];
+
+/* =======================
+   DISTANCE HELPER
+======================= */
+function getDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -33,447 +62,412 @@ const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) =
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-};
+}
 
-// 🔹 Hitung luas poligon sederhana
-const calculateArea = (coords: any[]) => {
-  if (!coords || coords.length < 3) return 0;
-  let area = 0;
-  for (let i = 0; i < coords.length; i++) {
-    const j = (i + 1) % coords.length;
-    area += coords[i].latitude * coords[j].longitude;
-    area -= coords[j].latitude * coords[i].longitude;
-  }
-  return Math.abs(area / 2).toFixed(3);
-};
+/* =======================
+   PROPERTY CARD
+======================= */
+const PropertyCard = ({ item, active, onPress }: any) => (
+  <TouchableOpacity
+    style={[styles.card, active && styles.cardActive]}
+    onPress={onPress}
+    activeOpacity={0.9}
+  >
+    <Image source={{ uri: item.image }} style={styles.cardImage} />
 
-export default function Maps() {
-  const router = useRouter();
-  const { theme } = useTheme();
-  const { lands } = useLands();
+    <View style={styles.ratingBadge}>
+      <Ionicons name="star" size={12} color="#FACC15" />
+      <Text style={styles.ratingText}>{item.rating}</Text>
+    </View>
 
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "sale" | "rent">("all");
-  const [radius, setRadius] = useState<number | null>(null);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
-    null
-  );
-  const [selected, setSelected] = useState<any>(null);
-  const [sheetVisible, setSheetVisible] = useState(false);
-  const [mapType, setMapType] = useState<"standard" | "satellite">("satellite");
-  const [locating, setLocating] = useState(false);
+    <View style={styles.cardContent}>
+      <Text numberOfLines={1} style={styles.cardTitle}>
+        {item.name}
+      </Text>
 
-  const [region, setRegion] = useState({
-    latitude: -7.797068,
-    longitude: 110.370529,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
-  });
+      <Text style={styles.cardPrice}>
+        Rp {item.price.toLocaleString("id-ID")}
+      </Text>
 
-  // 📍 Ambil posisi user
-  const locateMe = async () => {
-    try {
-      setLocating(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Izin Lokasi Ditolak", "Aktifkan izin lokasi di pengaturan.");
-        setLocating(false);
-        return;
-      }
-      const pos = await Location.getCurrentPositionAsync({});
-      const coords = {
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      };
-      setUserLocation(coords);
-      setRegion({
-        ...region,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      });
-    } catch {
-      Alert.alert("Gagal", "Tidak bisa mengambil lokasi saat ini.");
-    } finally {
-      setLocating(false);
-    }
-  };
+      <View style={styles.locationRow}>
+        <Ionicons name="location-outline" size={12} color="#6B7280" />
+        <Text style={styles.cardLocation}>
+          {item.location} • {item.distance.toFixed(1)} km
+        </Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
 
+/* =======================
+   MAIN
+======================= */
+export default function HomeGuestMap() {
+  const mapRef = useRef<MapView>(null);
+
+  const [userLoc, setUserLoc] = useState<any>(null);
+  const [radius, setRadius] = useState(15);
+  const [activeId, setActiveId] = useState<number | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [type, setType] = useState<"all" | "sale" | "rent">("all");
+  const [sort, setSort] =
+    useState<"distance" | "low" | "high" | "rating">("distance");
+
+  /* USER LOCATION */
   useEffect(() => {
-    locateMe();
+    (async () => {
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+
+      const loc = await Location.getCurrentPositionAsync({});
+      setUserLoc({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        },
+        800
+      );
+    })();
   }, []);
 
-  // 🔍 Filter pencarian + kategori + radius
-  const filteredLands = useMemo(() => {
-    let data = lands;
+  /* FILTER + SORT */
+  const filtered = useMemo(() => {
+    if (!userLoc) return [];
 
-    // filter dijual/disewa
-    if (filter !== "all") {
-      data =
-        filter === "sale"
-          ? data.filter((l) => l.isForSale)
-          : data.filter((l) => !l.isForSale);
-    }
+    let data = lands
+      .map((l) => ({
+        ...l,
+        distance: getDistanceKm(
+          userLoc.latitude,
+          userLoc.longitude,
+          l.coordinate.latitude,
+          l.coordinate.longitude
+        ),
+      }))
+      .filter((l) => l.distance <= radius);
 
-    // search by name
-    if (query.trim()) {
-      const q = query.toLowerCase();
+    if (search.trim()) {
       data = data.filter(
         (l) =>
-          l.name.toLowerCase().includes(q) ||
-          l.location.toLowerCase().includes(q)
+          l.name.toLowerCase().includes(search.toLowerCase()) ||
+          l.location.toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // filter radius (jika userLocation ada)
-    if (radius && userLocation) {
-      data = data.filter((l) => {
-        const dist = getDistanceKm(
-          userLocation.latitude,
-          userLocation.longitude,
-          l.center.latitude,
-          l.center.longitude
-        );
-        return dist <= radius;
-      });
+    if (type !== "all") {
+      data = data.filter((l) => l.type === type);
     }
 
-    return data;
-  }, [lands, filter, query, radius, userLocation]);
+    if (sort === "distance") data.sort((a, b) => a.distance - b.distance);
+    if (sort === "low") data.sort((a, b) => a.price - b.price);
+    if (sort === "high") data.sort((a, b) => b.price - a.price);
+    if (sort === "rating") data.sort((a, b) => b.rating - a.rating);
 
-  const openSheet = (land: any) => {
-    setSelected(land);
-    setSheetVisible(true);
-  };
+    return data;
+  }, [userLoc, radius, search, type, sort]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={{ flex: 1 }}>
+      {/* SEARCH BAR */}
+      <View style={styles.searchBox}>
+        <Ionicons name="search-outline" size={18} color="#64748B" />
+        <TextInput
+          placeholder="Cari lokasi atau nama properti"
+          value={search}
+          onChangeText={setSearch}
+          style={styles.searchInput}
+        />
+      </View>
+
       {/* MAP */}
       <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFillObject}
-        region={region}
-        mapType={mapType}
-        onRegionChangeComplete={setRegion as any}
+        showsUserLocation
       >
-        {/* Lokasi user */}
-        {userLocation && (
-          <>
-            <Marker coordinate={userLocation} title="Lokasi Saya">
-              <View style={styles.myLocMarker} />
-            </Marker>
-            {radius && (
-              <Circle
-                center={userLocation}
-                radius={radius * 1000}
-                strokeColor="rgba(59,130,246,0.8)"
-                fillColor="rgba(59,130,246,0.2)"
-              />
-            )}
-          </>
+        {userLoc && (
+          <Circle
+            center={userLoc}
+            radius={radius * 1000}
+            strokeColor="rgba(37,99,235,0.9)"
+            fillColor="rgba(37,99,235,0.2)"
+          />
         )}
 
-        {/* Lahan */}
-        {filteredLands.map((land) => (
-          <React.Fragment key={land.id}>
-            <Polygon
-              coordinates={land.coords}
-              strokeColor={land.isForSale ? "#F59E0B" : "#10B981"}
-              fillColor={
-                land.isForSale
-                  ? "rgba(245,158,11,0.25)"
-                  : "rgba(16,185,129,0.25)"
-              }
-              strokeWidth={2}
-              tappable
-              onPress={() => openSheet(land)}
-            />
-            <Marker
-              coordinate={land.center}
-              onPress={() => openSheet(land)}
-              title={land.name}
-              description={land.location}
-            />
-          </React.Fragment>
+        {filtered.map((l) => (
+          <Marker
+            key={l.id}
+            coordinate={l.coordinate}
+            onPress={() => setActiveId(l.id)}
+          />
         ))}
       </MapView>
 
-      {/* HEADER & FILTERS */}
-      <View style={styles.overlay}>
-        {/* Header */}
-        <View style={styles.topBar}>
-          <Text style={[styles.brand, { color: theme.text }]}>teraloka Maps</Text>
-          <View style={styles.topActions}>
+      {/* BOTTOM SHEET */}
+      <View style={styles.sheet}>
+        {/* FILTER */}
+        <View style={styles.filterRow}>
+          {["all", "sale", "rent"].map((t) => (
             <TouchableOpacity
-              onPress={() =>
-                setMapType(mapType === "satellite" ? "standard" : "satellite")
-              }
-              style={[styles.iconBtn, { backgroundColor: theme.surface }]}
+              key={t}
+              style={[
+                styles.filterChip,
+                type === t && styles.filterActive,
+              ]}
+              onPress={() => setType(t as any)}
             >
-              <Ionicons
-                name={mapType === "satellite" ? "layers-outline" : "planet-outline"}
-                size={18}
-                color={theme.text}
-              />
+              <Text
+                style={
+                  type === t
+                    ? styles.filterTextActive
+                    : styles.filterText
+                }
+              >
+                {t === "all"
+                  ? "Semua"
+                  : t === "sale"
+                  ? "Dijual"
+                  : "Disewa"}
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={[styles.iconBtn, { backgroundColor: theme.surface }]}
-            >
-              <Ionicons name="close" size={18} color={theme.text} />
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
-        {/* Search */}
-        <View
-          style={[
-            styles.searchWrap,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Ionicons name="search-outline" size={18} color={theme.textSecondary} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Cari lahan / lokasi..."
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.searchInput, { color: theme.text }]}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery("")} style={styles.clearBtn}>
-              <Ionicons name="close" size={16} color={theme.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Filter Status */}
+        {/* SORT */}
         <View style={styles.filterRow}>
           {[
-            { key: "all", label: "Semua" },
-            { key: "sale", label: "Dijual" },
-            { key: "rent", label: "Disewa" },
-          ].map((f) => {
-            const active = filter === (f.key as any);
-            return (
-              <TouchableOpacity
-                key={f.key}
-                onPress={() => setFilter(f.key as any)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? theme.primary : theme.surface,
-                    borderColor: active ? theme.primary : theme.border,
-                  },
-                ]}
+            { k: "distance", l: "Terdekat" },
+            { k: "low", l: "Termurah" },
+            { k: "high", l: "Termahal" },
+            { k: "rating", l: "Rating" },
+          ].map((s) => (
+            <TouchableOpacity
+              key={s.k}
+              style={[
+                styles.sortChip,
+                sort === s.k && styles.sortActive,
+              ]}
+              onPress={() => setSort(s.k as any)}
+            >
+              <Text
+                style={
+                  sort === s.k ? styles.sortTextActive : styles.sortText
+                }
               >
-                <Text
-                  style={{
-                    color: active ? "#fff" : theme.text,
-                    fontWeight: "600",
-                  }}
-                >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                {s.l}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Filter Radius */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.radiusRow}
-        >
-          {[null, 5, 10, 20].map((r) => {
-            const active = radius === r;
-            const label = r ? `${r} km` : "Semua Jarak";
-            return (
-              <TouchableOpacity
-                key={r ?? "all"}
-                style={[
-                  styles.radiusBtn,
+        {/* RADIUS */}
+        <Text style={styles.radiusLabel}>
+          Radius {radius} km
+        </Text>
+        <Slider
+          minimumValue={1}
+          maximumValue={50}
+          step={1}
+          value={radius}
+          onValueChange={setRadius}
+        />
+
+        {/* LIST */}
+        <FlatList
+          data={filtered}
+          keyExtractor={(i) => i.id.toString()}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <PropertyCard
+              item={item}
+              active={activeId === item.id}
+              onPress={() => {
+                setActiveId(item.id);
+                mapRef.current?.animateToRegion(
                   {
-                    backgroundColor: active ? theme.primary : theme.surface,
-                    borderColor: active ? theme.primary : theme.border,
+                    ...item.coordinate,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
                   },
-                ]}
-                onPress={() => setRadius(r)}
-              >
-                <Text style={{ color: active ? "#fff" : theme.text }}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+                  600
+                );
+              }}
+            />
+          )}
+        />
       </View>
-
-      {/* FAB */}
-      <View style={styles.fabs}>
-        <TouchableOpacity onPress={locateMe} style={styles.fab}>
-          <Ionicons
-            name={locating ? "locate" : "locate-outline"}
-            size={20}
-            color={theme.text}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Detail Modal */}
-      <Modal visible={sheetVisible} transparent animationType="slide">
-        <View style={styles.sheetOverlay}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface }]}>
-            {selected && (
-              <>
-                <Image source={{ uri: selected.image }} style={styles.sheetImg} />
-                <View style={styles.sheetContent}>
-                  <Text style={[styles.sheetTitle, { color: theme.text }]}>
-                    {selected.name}
-                  </Text>
-                  <Text style={[styles.sheetLoc, { color: theme.textSecondary }]}>
-                    {selected.location}
-                  </Text>
-                  <Text style={styles.sheetPrice}>
-                    Rp{selected.price.toLocaleString("id-ID")}{" "}
-                    <Text style={styles.unitText}>
-                      {selected.isForSale ? "/ha" : "/tahun"}
-                    </Text>
-                  </Text>
-                  <Text style={styles.info}>
-                    Jenis: {selected.type} | Luas: {calculateArea(selected.coords)} km²
-                  </Text>
-
-                  <TouchableOpacity
-                    style={[styles.detailBtn, { backgroundColor: theme.primary }]}
-                    onPress={() => {
-                      setSheetVisible(false);
-                      router.push({
-                        pathname: "/product/[id]",
-                        params: { id: selected.id },
-                      });
-                    }}
-                  >
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>
-                      Lihat Detail
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setSheetVisible(false)}
-                    style={styles.closeBtn}
-                  >
-                    <Text style={{ color: theme.error }}>Tutup</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
+/* =======================
+   STYLES
+======================= */
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  overlay: {
+  searchBox: {
     position: "absolute",
-    top: Platform.select({ ios: 40, android: 50 }),
+    top: 40,
+    left: 16,
+    right: 16,
+    zIndex: 10,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    elevation: 6,
+  },
+
+  searchInput: {
+    marginLeft: 8,
+    flex: 1,
+    fontSize: 14,
+  },
+
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    height: height * 0.55,
     left: 0,
     right: 0,
-    zIndex: 10,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 16,
   },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  brand: { fontSize: 18, fontWeight: "800" },
-  topActions: { flexDirection: "row", gap: 8 },
-  iconBtn: { padding: 8, borderRadius: 10 },
-  searchWrap: {
-    marginTop: 12,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  searchInput: { flex: 1, fontSize: 14 },
-  clearBtn: { padding: 6 },
+
   filterRow: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 10,
-    marginHorizontal: 16,
+    marginBottom: 10,
   },
-  chip: {
+
+  filterChip: {
     flex: 1,
     paddingVertical: 8,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  radiusRow: {
-    paddingHorizontal: 16,
-    marginTop: 10,
-  },
-  radiusBtn: {
-    borderWidth: 1,
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 10,
-  },
-  fabs: {
-    position: "absolute",
-    right: 16,
-    bottom: 24,
-    zIndex: 10,
-  },
-  fab: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     borderWidth: 1,
-    justifyContent: "center",
+    borderColor: "#CBD5E1",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
-  myLocMarker: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#3B82F6",
-    borderWidth: 2,
-    borderColor: "#fff",
+
+  filterActive: {
+    backgroundColor: "#2563EB",
+    borderColor: "#2563EB",
   },
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "flex-end",
+
+  filterText: {
+    color: "#334155",
+    fontWeight: "600",
   },
-  sheet: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+
+  filterTextActive: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  sortActive: {
+    backgroundColor: "#E0E7FF",
+    borderColor: "#2563EB",
+  },
+
+  sortText: {
+    fontSize: 12,
+    color: "#334155",
+  },
+
+  sortTextActive: {
+    fontSize: 12,
+    color: "#2563EB",
+    fontWeight: "700",
+  },
+
+  radiusLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+    color: "#475569",
+  },
+
+  card: {
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    marginBottom: 14,
     overflow: "hidden",
-    maxHeight: height * 0.55,
+    elevation: 3,
   },
-  sheetImg: { width: "100%", height: 160 },
-  sheetContent: { padding: 16 },
-  sheetTitle: { fontSize: 18, fontWeight: "700" },
-  sheetLoc: { fontSize: 13, marginBottom: 6 },
-  sheetPrice: { fontSize: 16, fontWeight: "700", color: "#111" },
-  unitText: { fontSize: 12, color: "#666" },
-  info: { marginTop: 8, color: "#555" },
-  detailBtn: {
-    marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
+
+  cardActive: {
+    borderWidth: 1,
+    borderColor: "#2563EB",
+  },
+
+  cardImage: {
+    width: "100%",
+    height: 140,
+  },
+
+  ratingBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+
+  ratingText: {
+    color: "#fff",
+    fontSize: 11,
+    marginLeft: 4,
+  },
+
+  cardContent: {
+    padding: 12,
+  },
+
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  cardPrice: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#2563EB",
+    marginTop: 4,
+  },
+
+  locationRow: {
+    flexDirection: "row",
     alignItems: "center",
+    marginTop: 4,
   },
-  closeBtn: { alignItems: "center", paddingVertical: 10, marginTop: 6 },
+
+  cardLocation: {
+    fontSize: 12,
+    marginLeft: 4,
+    color: "#6B7280",
+  },
 });

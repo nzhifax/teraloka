@@ -62,6 +62,17 @@ export default function PetaniLayout() {
           }}
         />
 
+                {/* Chat*/}
+        <Tabs.Screen
+          name="chat"
+          options={{
+            title: 'Chat',
+            tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble-ellipses-outline" color={color} size={size} />
+            ),
+          }}
+        />
+
         {/* Profil */}
         <Tabs.Screen
           name="profile"
